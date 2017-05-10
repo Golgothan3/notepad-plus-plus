@@ -248,6 +248,7 @@ void FindReplaceDlg::create(int dialogID, bool isRTL)
 {
 	StaticDialog::create(dialogID, isRTL);
 	fillFindHistory();
+	fillListBox();
 	_currentStatus = REPLACE_DLG;
 	initOptionsFromDlg();
 	
@@ -279,6 +280,102 @@ void FindReplaceDlg::create(int dialogID, bool isRTL)
 		enableDlgTheme(_hSelf, ETDT_ENABLETAB);
 
 	goToCenter();
+}
+
+void FindReplaceDlg::fillListBox()
+{
+	HWND hListBox = ::GetDlgItem(_hSelf, IDC_SELECTED_FILES);
+	bool showFullPaths = isCheckedOrNot(IDC_FULLPATH_CHECK);
+
+	::SendMessage(hListBox, LB_RESETCONTENT, 0, 0);
+	::SendMessage(hListBox, LB_SETHORIZONTALEXTENT, 0, 0);
+
+	int maxLength = 0;
+	for (int i = 0, len = _selectionListItems.size(); i < len; ++i)
+	{
+		generic_string stringToAdd = showFullPaths ? _selectionListItems[i]._fullPath : _selectionListItems[i]._fileName;
+		::SendMessage(hListBox, LB_ADDSTRING, 0, (LPARAM)stringToAdd.c_str());
+
+		//resize horizontal scrollbar to largest string
+		if (maxLength < (int)stringToAdd.length())
+		{
+			SIZE sz;
+			maxLength = stringToAdd.length();
+			GetTextExtentPoint32(GetDC(_hSelf), stringToAdd.c_str(), stringToAdd.length(), &sz);
+			::SendMessage(hListBox, LB_SETHORIZONTALEXTENT, sz.cx, 0);
+		}
+	}
+
+	for (int i = 0, len = _previouslySelectedPaths.size(); i < len; ++i)
+	{
+		int index = findBufferPath(_selectionListItems, _previouslySelectedPaths[i]);
+		if (index > -1)
+		{
+			::SendMessage(hListBox, LB_SETSEL, true, (LPARAM)index);
+		}
+	}
+
+	setButtonText();
+}
+
+int FindReplaceDlg::findBufferPath(vector<SearchFileSelectionInfo> containerToSearch, generic_string item)
+{
+	for (int i = 0, len = containerToSearch.size(); i < len; ++i)
+	{
+		if (containerToSearch[i]._fullPath == item)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+void FindReplaceDlg::setSelectionList(const vector<SearchFileSelectionInfo> filesToAdd)
+{
+	setPreviousPathSelection();
+	_selectionListItems = filesToAdd;
+}
+
+void FindReplaceDlg::setPreviousPathSelection()
+{
+	_previouslySelectedPaths.clear();
+	int selCount = ::SendMessage(::GetDlgItem(_hSelf, IDC_SELECTED_FILES), LB_GETSELCOUNT, 0, 0);
+	if (selCount > 0)
+	{
+		int * selectedIndexes = new int[selCount];
+		::SendMessage(::GetDlgItem(_hSelf, IDC_SELECTED_FILES), LB_GETSELITEMS, selCount, (LPARAM)selectedIndexes);
+		for (int i = 0; i < selCount; ++i)
+		{
+			_previouslySelectedPaths.push_back(_selectionListItems[selectedIndexes[i]]._fullPath);
+		}
+		delete[] selectedIndexes;
+	}
+}
+
+bool FindReplaceDlg::isFileSelected(Buffer * file)
+{
+	HWND hListBox = ::GetDlgItem(_hSelf, IDC_SELECTED_FILES);
+	int count = ::SendMessage(hListBox, LB_GETSELCOUNT, 0, 0);
+
+	if (count == 0)
+	{
+		return true;
+	}
+
+	int * selectedIndexes = new int[count];
+	::SendMessage(hListBox, LB_GETSELITEMS, count, (LPARAM)selectedIndexes);
+	generic_string pathToTest = file->getFullPathName();
+	bool isSelected = false;
+	for (int i = 0; i < count; ++i)
+	{
+		int selectionListIndex = selectedIndexes[i];
+		if (pathToTest == _selectionListItems[selectionListIndex]._fullPath)
+		{
+			isSelected = true;
+		}
+	}
+	delete[] selectedIndexes;
+	return isSelected;
 }
 
 void FindReplaceDlg::fillFindHistory()
@@ -840,6 +937,14 @@ INT_PTR CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM
 			switch (LOWORD(wParam))
 			{
 //Single actions
+				case IDC_SELECTED_FILES:
+				{
+					if (HIWORD(wParam) == LBN_SELCHANGE)
+					{
+						setButtonText();
+					}
+					break;
+				}
 				case IDCANCEL:
 					(*_ppEditView)->execute(SCI_CALLTIPCANCEL);
 					setStatusbarMessage(generic_string(), FSNoMessage);
@@ -903,6 +1008,21 @@ INT_PTR CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM
 					}
 				}
 				return TRUE;
+
+				case IDC_FILESELECTION_SELECT:
+				{
+					::SendMessage(::GetDlgItem(_hSelf, IDC_SELECTED_FILES), LB_SETSEL, TRUE, -1);
+					setButtonText();
+				}
+				return TRUE;
+
+				case IDC_FILESELECTION_CLEAR:
+				{
+					::SendMessage(::GetDlgItem(_hSelf, IDC_SELECTED_FILES), LB_SETSEL, FALSE, -1);
+					setButtonText();
+				}
+				return TRUE;
+
 //Process actions
 				case IDC_FINDALL_OPENEDFILES :
 				{
@@ -1228,6 +1348,13 @@ INT_PTR CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM
 				{
 					if ((_currentStatus == REPLACE_DLG) || (_currentStatus == MARK_DLG))
 						_options._isInSelection = isCheckedOrNot(IDC_IN_SELECTION_CHECK);
+				}
+				return TRUE;
+
+				case IDC_FULLPATH_CHECK:
+				{
+					setPreviousPathSelection();
+					fillListBox();
 				}
 				return TRUE;
 
@@ -2179,6 +2306,31 @@ void FindReplaceDlg::setSearchText(TCHAR * txt2find) {
 	::SendMessage(hCombo, CB_SETEDITSEL, 0, MAKELPARAM(0, -1)); // select all text - fast edit
 }
 
+void FindReplaceDlg::enableFileSelection(bool isEnable)
+{
+	::EnableWindow(::GetDlgItem(_hSelf, IDC_SELECTED_FILES), isEnable);
+	::EnableWindow(::GetDlgItem(_hSelf, IDC_FILESELECTION_CLEAR), isEnable);
+	::EnableWindow(::GetDlgItem(_hSelf, IDC_FILESELECTION_SELECT), isEnable);
+	::EnableWindow(::GetDlgItem(_hSelf, IDC_FULLPATH_CHECK), isEnable);
+}
+
+void FindReplaceDlg::setButtonText()
+{
+	int selCount = ::SendMessage(::GetDlgItem(_hSelf, IDC_SELECTED_FILES), LB_GETSELCOUNT, 0, 0);
+	bool toOriginal = selCount == 0 ? true : false;
+
+	if (toOriginal)
+	{
+		SetWindowText(::GetDlgItem(_hSelf, IDC_FINDALL_OPENEDFILES), TEXT("Find All in All &Opened Documents"));
+		SetWindowText(::GetDlgItem(_hSelf, IDC_REPLACE_OPENEDFILES), TEXT("Replace All in All &Opened Documents"));
+	}
+	else
+	{
+		SetWindowText(::GetDlgItem(_hSelf, IDC_FINDALL_OPENEDFILES), TEXT("Find All in Selected &Opened Documents"));
+		SetWindowText(::GetDlgItem(_hSelf, IDC_REPLACE_OPENEDFILES), TEXT("Replace All in Selected &Opened Documents"));
+	}
+}
+
 void FindReplaceDlg::enableReplaceFunc(bool isEnable) 
 {
 	_currentStatus = isEnable?REPLACE_DLG:FIND_DLG;
@@ -2187,6 +2339,7 @@ void FindReplaceDlg::enableReplaceFunc(bool isEnable)
 
 	enableFindInFilesControls(false);
 	enableMarkAllControls(false);
+	enableFileSelection(true);
 	// replace controls
 	::ShowWindow(::GetDlgItem(_hSelf, ID_STATICTEXT_REPLACE),hideOrShow);
 	::ShowWindow(::GetDlgItem(_hSelf, IDREPLACE),hideOrShow);
@@ -2561,6 +2714,8 @@ void FindReplaceDlg::doDialog(DIALOG_TYPE whichType, bool isRTL, bool toShow)
 		_isRTL = isRTL;
 		create(IDD_FIND_REPLACE_DLG, isRTL);
 	}
+
+	enableFileSelection(false);
 
 	if (whichType == FINDINFILES_DLG)
 		enableFindInFilesFunc();

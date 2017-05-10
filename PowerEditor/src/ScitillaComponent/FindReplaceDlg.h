@@ -247,6 +247,7 @@ public :
 	void initOptionsFromDlg();
 
 	void doDialog(DIALOG_TYPE whichType, bool isRTL = false, bool toShow = true);
+	void expandForFileList();
 	bool processFindNext(const TCHAR *txt2find, const FindOption *options = NULL, FindStatus *oFindStatus = NULL, FindNextType findNextType = FINDNEXTTYPE_FINDNEXT);
 	bool processReplace(const TCHAR *txt2find, const TCHAR *txt2replace, const FindOption *options = NULL);
 
@@ -260,6 +261,9 @@ public :
 	void replaceAllInOpenedDocs();
 	void findAllIn(InWhat op);
 	void setSearchText(TCHAR * txt2find);
+	void fillListBox();
+	void setSelectionList(const std::vector<SearchFileSelectionInfo> filesToAdd);
+	bool isFileSelected(Buffer * file);
 
 	void gotoNextFoundResult(int direction = 0) {if (_pFinder) _pFinder->gotoNextFoundResult(direction);};
 
@@ -370,13 +374,17 @@ private :
 	StatusBar _statusBar;
 	FindStatus _statusbarFindStatus;
 
-	
+	std::vector<SearchFileSelectionInfo> _selectionListItems;
+	std::vector<generic_string> _previouslySelectedPaths;
 
 	void enableReplaceFunc(bool isEnable);
 	void enableFindInFilesControls(bool isEnable = true);
 	void enableFindInFilesFunc();
 	void enableMarkAllControls(bool isEnable);
 	void enableMarkFunc();
+	void enableFileSelection(bool isEnable);
+	void setButtonText();
+	void setPreviousPathSelection();
 
 	void setDefaultButton(int nID) {
 		SendMessage(_hSelf, DM_SETDEFID, nID, 0L);
@@ -403,6 +411,7 @@ private :
 	static const int FR_OP_GLOBAL = 8;
 	void saveInMacro(size_t cmd, int cmdType);
 	void drawItem(LPDRAWITEMSTRUCT lpDrawItemStruct);
+	int findBufferPath(std::vector<SearchFileSelectionInfo> containerToSearch, generic_string item);
 
 };
 
