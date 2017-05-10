@@ -1070,7 +1070,7 @@ bool Notepad_plus::replaceInOpenedFiles() {
 		for (size_t i = 0, len = _mainDocTab.nbItem(); i < len ; ++i)
 	    {
 			pBuf = MainFileManager->getBufferByID(_mainDocTab.getBufferByIndex(i));
-			if (pBuf->isReadOnly())
+			if (pBuf->isReadOnly() || !_findReplaceDlg.isFileSelected(pBuf))
 				continue;
 			_invisibleEditView.execute(SCI_SETDOCPOINTER, 0, pBuf->getDocument());
 			UINT cp = static_cast<UINT>(_invisibleEditView.execute(SCI_GETCODEPAGE));
@@ -1087,7 +1087,7 @@ bool Notepad_plus::replaceInOpenedFiles() {
 		for (size_t i = 0, len = _subDocTab.nbItem(); i < len; ++i)
 	    {
 			pBuf = MainFileManager->getBufferByID(_subDocTab.getBufferByIndex(i));
-			if (pBuf->isReadOnly())
+			if (pBuf->isReadOnly() || !_findReplaceDlg.isFileSelected(pBuf))
 				continue;
 			_invisibleEditView.execute(SCI_SETDOCPOINTER, 0, pBuf->getDocument());
 			UINT cp = static_cast<UINT>(_invisibleEditView.execute(SCI_GETCODEPAGE));
