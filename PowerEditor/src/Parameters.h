@@ -263,6 +263,16 @@ struct PluginDlgDockingInfo final
 	}
 };
 
+struct SearchFileSelectionInfo final
+{
+	generic_string _fileName;
+	generic_string _fullPath;
+	bool _isInMainWindow;
+
+	SearchFileSelectionInfo(generic_string fileName, generic_string fullPath, bool inMainWindow)
+		: _fileName(fileName), _fullPath(fullPath), _isInMainWindow(inMainWindow){};
+};
+
 
 struct ContainerTabInfo final
 {
