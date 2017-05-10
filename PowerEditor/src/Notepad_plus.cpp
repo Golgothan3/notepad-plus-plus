@@ -3302,6 +3302,7 @@ void Notepad_plus::hideView(int whichOne)
 	switchEditViewTo(otherFromView(whichOne));
 	int viewToDisable = (whichOne == SUB_VIEW?WindowSubActive:WindowMainActive);
 	_mainWindowStatus &= ~viewToDisable;
+	fillFinderListBox();
 }
 
 bool Notepad_plus::loadStyles()
@@ -3370,6 +3371,8 @@ void Notepad_plus::loadBufferIntoView(BufferID id, int whichOne, bool dontClose)
 	{
 		tabToOpen->addBuffer(id);
 	}
+
+	fillFinderListBox();
 }
 
 bool Notepad_plus::removeBufferFromView(BufferID id, int whichOne)
@@ -3427,6 +3430,8 @@ bool Notepad_plus::removeBufferFromView(BufferID id, int whichOne)
 	}
 
 	MainFileManager->closeBuffer(id, viewToClose);
+	fillFinderListBox();
+
 	return true;
 }
 
@@ -4958,6 +4963,36 @@ void Notepad_plus::drawTabbarColoursFromStylerArray()
 		TabBarPlus::setColour(stInact->_fgColor, TabBarPlus::inactiveText);
 	if (stInact && stInact->_bgColor != -1)
 		TabBarPlus::setColour(stInact->_bgColor, TabBarPlus::inactiveBg);
+}
+
+void Notepad_plus::fillFinderListBox()
+{
+	size_t count = _mainDocTab.nbItem();
+	vector<SearchFileSelectionInfo> openFiles;
+	if (_mainDocTab.isVisible())
+	{
+		for (size_t i = 0; i < count; ++i)
+		{
+			Buffer * pBuf = _mainDocTab.getBufferByIndex(i);
+			SearchFileSelectionInfo info = SearchFileSelectionInfo(pBuf->getFileName(), pBuf->getFullPathName(), true);
+			openFiles.push_back(info);
+		}
+	}
+	if (_subDocTab.isVisible())
+	{
+		count = _subDocTab.nbItem();
+		for (size_t i = 0; i < count; ++i)
+		{
+			Buffer * pBuf = _subDocTab.getBufferByIndex(i);
+			SearchFileSelectionInfo info = SearchFileSelectionInfo(pBuf->getFileName(), pBuf->getFullPathName(), false);
+			openFiles.push_back(info);
+		}
+	}
+	if (openFiles.size())
+	{
+		_findReplaceDlg.setSelectionList(openFiles);
+		_findReplaceDlg.fillListBox();
+	}
 }
 
 void Notepad_plus::prepareBufferChangedDialog(Buffer * buffer)

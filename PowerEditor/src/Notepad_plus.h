@@ -428,6 +428,7 @@ private:
 	void checkSyncState();
 	void dropFiles(HDROP hdrop);
 	void checkModifiedDocument();
+	void fillFinderListBox();
 
     void getMainClientRect(RECT & rc) const;
 	void staticCheckMenuAndTB() const;
